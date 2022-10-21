@@ -19,9 +19,9 @@ class MidiFile(mido.MidiFile):
         mid = self
         print(mid)
 
-        # There is > 16 channel in midi.tracks. However there is only 16 channel related to "music" events.
+        # There is > 16 channel in midi.tracks. However, there is only 16 channel related to "music" events.
         # We store music events of 16 channel in the list "events" with form [[ch1],[ch2]....[ch16]]
-        # Lyrics and meta data used a extra channel which is not include in "events"
+        # Lyrics and metadata used an extra channel which is not include in "events"
 
         events = [[] for x in range(16)]
 
@@ -38,7 +38,7 @@ class MidiFile(mido.MidiFile):
                         else:
                             pass
                     except:
-                        print("error",type(msg))
+                        print("error", type(msg))
 
         return events
 
@@ -60,7 +60,6 @@ class MidiFile(mido.MidiFile):
         # use a register array to save the state(program_change) for each channel
         timbre_register = [1 for x in range(16)]
 
-
         for idx, channel in enumerate(events):
 
             time_counter = 0
@@ -73,17 +72,15 @@ class MidiFile(mido.MidiFile):
                 if msg.type == "control_change":
                     if msg.control == 7:
                         volume = msg.value
-                        # directly assign volume
+                    # directly assign volume
                     if msg.control == 11:
                         volume = volume * msg.value // 127
-                        # change volume by percentage
-                    # print("cc", msg.control, msg.value, "duration", msg.time)
+                    # change volume by percentage
+                # print("cc", msg.control, msg.value, "duration", msg.time)
 
                 if msg.type == "program_change":
                     timbre_register[idx] = msg.program
                     print("channel", idx, "pc", msg.program, "time", time_counter, "duration", msg.time)
-
-
 
                 if msg.type == "note_on":
                     print("on ", msg.note, "time", time_counter, "duration", msg.time, "velocity", msg.velocity)
@@ -91,20 +88,17 @@ class MidiFile(mido.MidiFile):
                     note_on_end_time = (time_counter + msg.time) // sr
                     intensity = volume * msg.velocity // 127
 
-
-
-					# When a note_on event *ends* the note start to be play 
-					# Record end time of note_on event if there is no value in register
-					# When note_off event happens, we fill in the color
+                    # When a note_on event *ends* the note start to be play
+                    # Record end time of note_on event if there is no value in register
+                    # When note_off event happens, we fill in the color
                     if note_register[msg.note] == -1:
-                        note_register[msg.note] = (note_on_end_time,intensity)
+                        note_register[msg.note] = (note_on_end_time, intensity)
                     else:
-					# When note_on event happens again, we also fill in the color
+                        # When note_on event happens again, we also fill in the color
                         old_end_time = note_register[msg.note][0]
                         old_intensity = note_register[msg.note][1]
                         roll[idx, msg.note, old_end_time: note_on_end_time] = old_intensity
-                        note_register[msg.note] = (note_on_end_time,intensity)
-
+                        note_register[msg.note] = (note_on_end_time, intensity)
 
                 if msg.type == "note_off":
                     print("off", msg.note, "time", time_counter, "duration", msg.time, "velocity", msg.velocity)
@@ -112,17 +106,17 @@ class MidiFile(mido.MidiFile):
                     note_off_end_time = (time_counter + msg.time) // sr
                     note_on_end_time = note_register[msg.note][0]
                     intensity = note_register[msg.note][1]
-					# fill in color
+                    # fill in color
                     roll[idx, msg.note, note_on_end_time:note_off_end_time] = intensity
 
                     note_register[msg.note] = -1  # reinitialize register
 
                 time_counter += msg.time
 
-                # TODO : velocity -> done, but not verified
-                # TODO: Pitch wheel
-                # TODO: Channel - > Program Changed / Timbre catagory
-                # TODO: real time scale of roll
+            # TODO : velocity -> done, but not verified
+            # TODO: Pitch wheel
+            # TODO: Channel - > Program Changed / Timbre category
+            # TODO: real time scale of roll
 
             # if there is a note not closed at the end of a channel, close it
             for key, data in enumerate(note_register):
@@ -150,7 +144,7 @@ class MidiFile(mido.MidiFile):
         for i in range(K):
             cmaps[i]._init()  # create the _lut array, with rgba values
             # create your alpha array and fill the colormap with them.
-            # here it is progressive, but you can create whathever you want
+            # here it is progressive, but you can create whatever you want
             alphas = np.linspace(0, 1, cmaps[i].N + 3)
             cmaps[i]._lut[:, -1] = alphas
 
@@ -171,15 +165,16 @@ class MidiFile(mido.MidiFile):
 
     def draw_roll(self):
 
-
         roll = self.get_roll()
 
         # build and set fig obj
         plt.ioff()
-        fig = plt.figure(figsize=(4, 3))
+        fig = plt.figure(figsize=(12, 8))
         a1 = fig.add_subplot(111)
         a1.axis("equal")
-        a1.set_facecolor("black")
+        a1.set_facecolor("white")
+        a1.set_xlabel("time (s)")
+        a1.set_ylabel("note (midi number)")
 
         # change unit of time axis from tick to second
         tick = self.get_total_ticks()
@@ -192,10 +187,11 @@ class MidiFile(mido.MidiFile):
         print(x_label_period_sec)
         x_label_interval = mido.second2tick(x_label_period_sec, self.ticks_per_beat, self.get_tempo()) / self.sr
         print(x_label_interval)
-        plt.xticks([int(x * x_label_interval) for x in range(20)], [round(x * x_label_period_sec, 2) for x in range(20)])
+        plt.xticks([int(x * x_label_interval) for x in range(20)],
+                   [round(x * x_label_period_sec, 2) for x in range(20)])
 
-        # change scale and label of y axis
-        plt.yticks([y*16 for y in range(8)], [y*16 for y in range(8)])
+        # change scale and label of y-axis
+        plt.yticks([y * 16 for y in range(8)], [y * 16 for y in range(8)])
 
         # build colors
         channel_nb = 16
@@ -212,22 +208,12 @@ class MidiFile(mido.MidiFile):
             # create the _lut array, with rgba values
             cmaps[i]._lut[:, -1] = alphas
 
-
         # draw piano roll and stack image on a1
         for i in range(channel_nb):
             try:
                 a1.imshow(roll[i], origin="lower", interpolation='nearest', cmap=cmaps[i], aspect='auto')
             except IndexError:
                 pass
-
-        # draw color bar
-
-        colors = [mpl.colors.hsv_to_rgb((i / channel_nb, 1, 1)) for i in range(channel_nb)]
-        cmap = mpl.colors.LinearSegmentedColormap.from_list('my_cmap', colors, 16)
-        a2 = fig.add_axes([0.05, 0.80, 0.9, 0.15])
-        cbar = mpl.colorbar.ColorbarBase(a2, cmap=cmap,
-                                        orientation='horizontal',
-                                        ticks=list(range(16)))
 
         # show piano roll
         plt.draw()
@@ -250,15 +236,16 @@ class MidiFile(mido.MidiFile):
 
 
 if __name__ == "__main__":
-    mid = MidiFile("test_file/1.mid")
+    midi_1 = MidiFile("test_file/1.mid")
+    midi_2 = MidiFile("test_file/2.mid")
 
     # get the list of all events
     # events = mid.get_events()
 
     # get the np array of piano roll image
-    roll = mid.get_roll()
+    roll_1 = midi_1.get_roll()
+    roll_2 = midi_2.get_roll()
 
     # draw piano roll by pyplot
-    mid.draw_roll()
-
-
+    midi_1.draw_roll()
+    midi_2.draw_roll()
