@@ -18,10 +18,11 @@ class MidiFile(mido.MidiFile):
         self.meta = {}
         self.events = self.get_events()
         self.note_list = self.get_note_list()
+        self.old = True
 
     def get_events(self):
         mid = self
-        print(mid)
+        # print(mid)
 
         # There is > 16 channel in midi.tracks. However, there is only 16 channel related to "music" events.
         # We store music events of 16 channel in the list "events" with form [[ch1],[ch2]....[ch16]]
@@ -64,11 +65,11 @@ class MidiFile(mido.MidiFile):
             # Volume would change by control change event (cc) cc7 & cc11
             # Volume 0-100 is mapped to 0-127
 
-            print("channel", idx, "start")
+            # print("channel", idx, "start")
             for msg in channel:
 
                 if msg.type == "note_on":
-                    print("on ", msg.note, "time", time_counter, "duration", msg.time, "velocity", msg.velocity)
+                    # print("on ", msg.note, "time", time_counter, "duration", msg.time, "velocity", msg.velocity)
                     note_on_start_time = time_counter // sr
                     note_on_end_time = (time_counter + msg.time) // sr
 
@@ -84,7 +85,7 @@ class MidiFile(mido.MidiFile):
                         note_register[msg.note] = note_on_end_time
 
                 if msg.type == "note_off":
-                    print("off", msg.note, "time", time_counter, "duration", msg.time, "velocity", msg.velocity)
+                    # print("off", msg.note, "time", time_counter, "duration", msg.time, "velocity", msg.velocity)
                     note_off_start_time = time_counter // sr
                     note_off_end_time = (time_counter + msg.time) // sr
 
@@ -108,7 +109,7 @@ class MidiFile(mido.MidiFile):
         result_note_list = []
 
         for entry in old_note_list:
-            if entry in new_note_list:
+            if entry[0] == channel_id and entry in new_note_list:
                 # note exists in new version, color it black
                 result_note_list.append((entry[0], entry[1], entry[2], entry[3], BLACK))
             else:
@@ -123,7 +124,7 @@ class MidiFile(mido.MidiFile):
         result_note_list = []
 
         for entry in new_note_list:
-            if entry in old_note_list:
+            if entry[0] == channel_id and entry in old_note_list:
                 # note exists in previous version, color it black
                 result_note_list.append((entry[0], entry[1], entry[2], entry[3], BLACK))
             else:
@@ -131,56 +132,6 @@ class MidiFile(mido.MidiFile):
                 result_note_list.append((entry[0], entry[1], entry[2], entry[3], GREEN))
 
         self.note_list = result_note_list
-
-    def draw_roll(self):
-        # build and set fig obj
-
-        sr = self.sr
-        length = self.get_total_ticks()
-        piano_roll = np.zeros((16, 128, length // sr), dtype="int8")
-
-        for entry in self.note_list:
-            piano_roll[entry[0], entry[1], entry[2]:entry[3]] = entry[4]
-
-        plt.ioff()
-        fig = plt.figure(figsize=(12, 8))
-        a1 = fig.add_subplot(111)
-        a1.axis("equal")
-        a1.set_facecolor("white")
-        a1.set_xlabel("time (s)")
-        a1.set_ylabel("note (midi number)")
-
-        # change unit of time axis from tick to second
-        tick = self.get_total_ticks()
-        second = mido.tick2second(tick, self.ticks_per_beat, self.get_tempo())
-        print(second)
-        if second > 10:
-            x_label_period_sec = second // 10
-        else:
-            x_label_period_sec = second / 10  # ms
-        print(x_label_period_sec)
-        x_label_interval = mido.second2tick(x_label_period_sec, self.ticks_per_beat, self.get_tempo()) / self.sr
-        print(x_label_interval)
-        plt.xticks([int(x * x_label_interval) for x in range(20)],
-                   [round(x * x_label_period_sec, 2) for x in range(20)])
-
-        # change scale and label of y-axis
-        plt.yticks([y * 16 for y in range(8)], [y * 16 for y in range(8)])
-
-        colors = [(1, 1, 1), (0, 0, 0), (1, 0, 0), (0, 1, 0)]
-        cmap_name = 'my_colors'
-        cmap = mpl.colors.LinearSegmentedColormap.from_list(cmap_name, colors)
-        bounds = np.linspace(0, 4, 5)
-        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-
-        a1.imshow(piano_roll[0], origin="lower", interpolation='nearest',
-                  cmap=cmap, norm=norm, aspect='auto')
-
-        # show piano roll
-        plt.title(self.filename)
-        plt.draw()
-        plt.ion()
-        plt.show(block=True)
 
     def get_tempo(self):
         return self.meta["set_tempo"]["tempo"]
@@ -193,17 +144,105 @@ class MidiFile(mido.MidiFile):
                 max_ticks = ticks
         return max_ticks
 
+    def reload(self):
+        self.note_list = self.get_note_list()
+
+
+def draw_roll():
+    # build and set fig obj
+
+    sr_old = midi_old.sr
+    sr_new = midi_new.sr
+    length_old = midi_old.get_total_ticks()
+    length_new = midi_new.get_total_ticks()
+
+    piano_roll_old = np.zeros((16, 128, length_old // sr_old), dtype="int8")
+    piano_roll_new = np.zeros((16, 128, length_new // sr_new), dtype="int8")
+
+    for entry in midi_old.note_list:
+        piano_roll_old[entry[0], entry[1], entry[2]:entry[3]] = entry[4]
+    for entry in midi_new.note_list:
+        piano_roll_new[entry[0], entry[1], entry[2]:entry[3]] = entry[4]
+
+    plt.ioff()
+    fig = plt.figure(figsize=(15, 12))
+    fig.tight_layout()
+    fig.suptitle('Showing MIDI diff in channel ' + str(channel_id), size="25")
+
+    plot_old = fig.add_subplot(2, 1, 1)
+    plot_old.axis("equal")
+    plot_old.set_facecolor("white")
+    plot_old.set_xlabel("time (s)")
+    plot_old.set_ylabel("note (midi number)")
+
+    plot_new = fig.add_subplot(2, 1, 2)
+    plot_new.axis("equal")
+    plot_new.set_facecolor("white")
+    plot_new.set_xlabel("time (s)")
+    plot_new.set_ylabel("note (midi number)")
+
+    # change unit of time axis from tick to second
+    tick = midi_new.get_total_ticks()
+    second = mido.tick2second(tick, midi_new.ticks_per_beat, midi_new.get_tempo())
+    # print(second)
+    if second > 10:
+        x_label_period_sec = second // 10
+    else:
+        x_label_period_sec = second / 10  # ms
+    # print(x_label_period_sec)
+    x_label_interval = mido.second2tick(x_label_period_sec, midi_new.ticks_per_beat, midi_new.get_tempo()) / midi_new.sr
+    # print(x_label_interval)
+
+    # change scale and label of x-axis
+    plot_old.set_xticks([int(x * x_label_interval) for x in range(20)])
+    plot_old.set_xticklabels([round(x * x_label_period_sec, 2) for x in range(20)])
+    plot_new.set_xticks([int(x * x_label_interval) for x in range(20)])
+    plot_new.set_xticklabels([round(x * x_label_period_sec, 2) for x in range(20)])
+    # change scale and label of y-axis
+    plot_old.set_yticks([y * 16 for y in range(8)])
+    plot_old.set_yticklabels([y * 16 for y in range(8)])
+    plot_new.set_yticks([y * 16 for y in range(8)])
+    plot_new.set_yticklabels([y * 16 for y in range(8)])
+
+    colors = [(1, 1, 1), (0, 0, 0), (1, 0, 0), (0, 1, 0)]
+    cmap_name = 'my_colors'
+    cmap = mpl.colors.LinearSegmentedColormap.from_list(cmap_name, colors)
+    bounds = np.linspace(0, 4, 5)
+    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+
+    plot_old.imshow(piano_roll_old[channel_id], origin="lower", interpolation='nearest',
+                    cmap=cmap, norm=norm, aspect='auto')
+    plot_new.imshow(piano_roll_new[channel_id], origin="lower", interpolation='nearest',
+                    cmap=cmap, norm=norm, aspect='auto')
+
+    # show piano roll
+    plot_old.title.set_text('File: ' + midi_old.filename)
+    plot_new.title.set_text('File: ' + midi_new.filename)
+    plt.draw()
+    plt.ion()
+    plt.show(block=True)
+
 
 if __name__ == "__main__":
     # step 1: parse MIDI files
     # TODO: parse longer, more complex files like air.mid
     midi_old = MidiFile("test_file/3.mid")
+    midi_old.old = True
     midi_new = MidiFile("test_file/4.mid")
+    midi_new.old = False
 
-    # step 2: compare MIDI files, and create an array with colors (pitch, start, end, color)
-    midi_old.compare_to_new(midi_new)
-    midi_new.compare_to_old(midi_old)
+    try:
+        while True:
+            midi_old.reload()
+            midi_new.reload()
 
-    # step 3: draw MIDI piano rolls
-    midi_old.draw_roll()
-    midi_new.draw_roll()
+            channel_id = int(input('Which MIDI channel do you want to compare? (0 <= i <= 15)\n'))
+
+            # step 2: compare MIDI files, and create an array with colors (pitch, start, end, color)
+            midi_old.compare_to_new(midi_new)
+            midi_new.compare_to_old(midi_old)
+
+            # step 3: draw MIDI piano rolls
+            draw_roll()
+    except ValueError or IndexError:
+        pass
