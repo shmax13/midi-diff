@@ -225,11 +225,13 @@ def draw_roll():
 
 if __name__ == "__main__":
     # step 1: parse MIDI files
-    # TODO: parse longer, more complex files like air.mid
-    midi_old = MidiFile("test_file/3.mid")
+    midi_old = MidiFile("test_file/fl_dancing_queen.mid")
     midi_old.old = True
-    midi_new = MidiFile("test_file/4.mid")
+    midi_new = MidiFile("test_file/fl_air.mid")
     midi_new.old = False
+
+    if midi_old.get_total_ticks() != midi_new.get_total_ticks():
+        print('WARNING: Please choose two MIDI files of the same length!')
 
     try:
         while True:
@@ -245,4 +247,7 @@ if __name__ == "__main__":
             # step 3: draw MIDI piano rolls
             draw_roll()
     except ValueError or IndexError:
+        pass
+    except KeyboardInterrupt:
+        print("Exiting.")
         pass
