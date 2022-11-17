@@ -100,8 +100,5 @@ ENV/
 # mypy
 .mypy_cache/
 
-# test midi files
-/test_file/*
-
 # idea files
 /.idea/
