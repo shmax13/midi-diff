@@ -220,9 +220,9 @@ def draw_roll():
 
 if __name__ == "__main__":
     # step 1: parse MIDI files
-    midi_old = MidiFile("test_file/fl_air.mid")
+    midi_old = MidiFile("demo_files/uc2_old.mid")
     midi_old.old = True
-    midi_new = MidiFile("test_file/fl_dancing_queen.mid")
+    midi_new = MidiFile("demo_files/uc2_new.mid")
     midi_new.old = False
 
     if midi_old.get_total_ticks() != midi_new.get_total_ticks():
