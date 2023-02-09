@@ -235,9 +235,13 @@ if __name__ == "__main__":
             midi_new.reload()
 
             # step 3: take user input on which channel should be compared
-            channel_id = int(input('Which MIDI channel do you want to compare? (0 <= i <= 15)\n'))
+            channel_id = int(input("Which MIDI channel do you "
+                "want to compare? (0 <= i <= 15)\n"))
+            if not (0 <= channel_id <= 15):
+                break
 
-            # step 4: compare MIDI files and create an array with note objects (pitch, start, end, color)
+            # step 4: compare MIDI files and create an array
+            #   with note objects (pitch, start, end, color)
             midi_old.compare_to_new(midi_new)
             midi_new.compare_to_old(midi_old)
 
